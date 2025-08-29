@@ -8,8 +8,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Monaco Editor Loader -->
     <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.41.0/min/vs/loader.js"></script>
-    <!-- jsPDF Library for PDF generation -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
             --bg-primary: #111827; /* gray-900 */
@@ -519,9 +517,9 @@
             const downloadContainer = document.createElement('div');
             downloadContainer.className = 'mt-8 pt-4 border-t border-themed flex gap-4 justify-end';
             downloadContainer.innerHTML = `
-                <button id="download-pdf-btn" class="bg-secondary hover-bg-tertiary border border-themed text-primary font-bold py-2 px-4 rounded-md transition-colors flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
-                    Download PDF
+                <button id="copy-html-btn" class="bg-secondary hover-bg-tertiary border border-themed text-primary font-bold py-2 px-4 rounded-md transition-colors flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" /><path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h6a2 2 0 00-2-2H5z" /></svg>
+                    Copy Source Code
                 </button>
                 <button id="download-html-btn" class="bg-secondary hover-bg-tertiary border border-themed text-primary font-bold py-2 px-4 rounded-md transition-colors flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
@@ -529,7 +527,7 @@
                 </button>
             `;
             modalContent.appendChild(downloadContainer);
-            document.getElementById('download-pdf-btn').addEventListener('click', generateConceptPDF);
+            document.getElementById('copy-html-btn').addEventListener('click', copyConceptHTML);
             document.getElementById('download-html-btn').addEventListener('click', generateConceptHTML);
         }
         
@@ -729,45 +727,10 @@
             });
         }
         
-        function generateConceptPDF() {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            let y = 15;
-
-            doc.setFontSize(18);
-            doc.text(`Key Concepts: ${currentTopic}`, 10, y);
-            y += 15;
-            
-            const rawContent = currentTopicCache.concept || "";
-            
-            const lines = rawContent.split('<br>');
-            
-            lines.forEach(line => {
-                if (y > 280) { // New page if content overflows
-                    doc.addPage();
-                    y = 15;
-                }
-                
-                // Basic HTML tag stripping
-                line = line.replace(/<[^>]*>/g, '').trim();
-
-                if (line) {
-                    doc.setFontSize(10);
-                    const text = doc.splitTextToSize(line, 180);
-                    doc.text(text, 10, y);
-                    y += (text.length * 5) + 2;
-                } else {
-                     y += 5; // Space for empty lines
-                }
-            });
-
-            doc.save(`${currentTopic}_Concepts.pdf`);
-        }
-
-        function generateConceptHTML() {
+        function getConceptHTMLSource() {
             const contentHTML = document.querySelector('#modalContent .prose').innerHTML;
             const theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-            const html = `
+            return `
                 <!DOCTYPE html>
                 <html lang="en" class="${theme}">
                 <head>
@@ -796,7 +759,39 @@
                 </body>
                 </html>
             `;
+        }
 
+        function copyConceptHTML() {
+            const htmlSource = getConceptHTMLSource();
+            const copyButton = document.getElementById('copy-html-btn');
+            const originalText = copyButton.innerHTML;
+
+            const textArea = document.createElement("textarea");
+            textArea.value = htmlSource;
+            textArea.style.position = "fixed";
+            textArea.style.top = 0;
+            textArea.style.left = 0;
+            textArea.style.opacity = 0;
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                copyButton.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
+                    Copied!
+                `;
+            } catch (err) {
+                showError('Oops, unable to copy');
+            }
+            document.body.removeChild(textArea);
+            
+            setTimeout(() => { copyButton.innerHTML = originalText; }, 2000);
+        }
+
+
+        function generateConceptHTML() {
+            const html = getConceptHTMLSource();
             const blob = new Blob([html], { type: 'text/html' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
@@ -925,4 +920,3 @@
     </script>
 </body>
 </html>
-
